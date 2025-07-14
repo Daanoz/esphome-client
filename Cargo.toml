@@ -1,0 +1,52 @@
+[package]
+name = "esphome-client"
+version = "0.1.0"
+edition = "2021"
+description = "ESPHome client library for Rust"
+license = "MIT"
+authors = [
+  "Daan Sieben"
+]
+repository = "https://github.com/daanoz/esphome-client"
+homepage = "https://github.com/daanoz/esphome-client"
+documentation = "https://docs.rs/esphome-client"
+readme = "README.md"
+keywords = ["esphome", "iot", "smart-home", "home-automation", "api"]
+categories = ["network-programming", "api-bindings"]
+rust-version = "1.82"
+
+[lib]
+
+[features]
+default = ["discovery"]
+# Enable mDNS service discovery
+discovery = ["dep:mdns-sd", "tokio/rt", "tokio/sync"]
+
+# Use api released with ESPHome 2025.8.0
+api-1-12 = []
+# Use api released with ESPHome 2025.5.0
+api-1-10 = []
+# Use api last released with ESPHome 2024.4.0
+api-1-9 = []
+# Use api last released with ESPHome 2023.5.0
+api-1-8 = []
+
+[dependencies]
+base64 = "0.22.1"
+mdns-sd = { version = "0.13.11", optional = true }
+prost = "0.14.1"
+snow = "0.9.6"
+thiserror = "2.0"
+tokio = { version = "1", features = ["io-util", "net", "time"] }
+tracing = "0.1.41"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tracing-subscriber = "0.3"
+
+[build-dependencies]
+heck = "0.5.0"
+proc-macro2 = "1.0.95"
+prost-build = "0.14.1"
+quote = "1.0.40"
+regex = "1.11.1"
