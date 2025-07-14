@@ -1,0 +1,2 @@
+doc-valid-idents = ["ESPHome"]
+allow-unwrap-in-tests = true
