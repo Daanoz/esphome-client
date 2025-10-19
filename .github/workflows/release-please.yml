@@ -56,8 +56,8 @@ jobs:
       - name: Build release artifacts
         if: ${{ steps.release.outputs.release_created }}
         run: |
-          cargo build --release --all-features
-          cargo doc --no-deps --all-features
+          cargo build --release
+          cargo doc --no-deps
 
       - name: Upload Release Assets
         if: ${{ steps.release.outputs.release_created }}
