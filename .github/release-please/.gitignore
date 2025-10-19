@@ -1,0 +1,3 @@
+# This directory is used by release-please to store state
+# The files here should be committed to version control
+!.gitignore
