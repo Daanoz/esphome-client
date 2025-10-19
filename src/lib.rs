@@ -2,7 +2,6 @@
     html_logo_url = "https://avatars.githubusercontent.com/u/91469139?s=128",
     html_favicon_url = "https://avatars.githubusercontent.com/u/91469139?s=256"
 )]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![cfg_attr(any(doc, test), doc = include_str!("../README.md"))]
 #![cfg_attr(not(any(doc, test)), doc = env!("CARGO_PKG_NAME"))]
 #![deny(nonstandard_style, rustdoc::all, trivial_casts, trivial_numeric_casts)]
