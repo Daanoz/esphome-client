@@ -130,6 +130,7 @@ fn create_noise_client(key: &str) -> Result<snow::HandshakeState, ClientError> {
         }
         .into());
     }
+    #[allow(clippy::unwrap_in_result, reason = "Valid encryption protocol")]
     let noise = snow::Builder::new(
         "Noise_NNpsk0_25519_ChaChaPoly_SHA256"
             .parse()
@@ -277,6 +278,7 @@ mod tests {
                 "Invalid PSK length",
             ));
         }
+        #[allow(clippy::unwrap_in_result, reason = "Valid encryption protocol")]
         let noise = snow::Builder::new(
             "Noise_NNpsk0_25519_ChaChaPoly_SHA256"
                 .parse()

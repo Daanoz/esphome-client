@@ -23,6 +23,7 @@ use crate::{
 
 type StreamPair = (StreamReader, StreamWriter);
 
+/// Client for sending and receiving messages to an ESPHome API server.
 #[derive(Debug)]
 pub struct EspHomeClient {
     streams: StreamPair,
@@ -98,6 +99,7 @@ impl EspHomeClient {
     }
 }
 
+/// Clone-able write stream for sending messages to the ESPHome device.
 #[derive(Debug, Clone)]
 pub struct EspHomeClientWriteStream {
     writer: StreamWriter,
@@ -119,6 +121,7 @@ impl EspHomeClientWriteStream {
     }
 }
 
+/// Builder for configuring and connecting to an ESPHome API server.
 #[derive(Debug)]
 pub struct EspHomeClientBuilder {
     addr: Option<String>,
@@ -296,7 +299,10 @@ impl EspHomeClientBuilder {
         feature = "api-1-9",
         feature = "api-1-8"
     )))]
-    async fn authenticate(stream: &mut EspHomeClient, password: Option<String>,) -> Result<(), ClientError> {
+    async fn authenticate(
+        stream: &mut EspHomeClient,
+        password: Option<String>,
+    ) -> Result<(), ClientError> {
         use crate::proto::AuthenticationRequest;
 
         stream
@@ -330,7 +336,10 @@ impl EspHomeClientBuilder {
         feature = "api-1-9",
         feature = "api-1-8"
     ))]
-    async fn authenticate(stream: &mut EspHomeClient, password: Option<String>,) -> Result<(), ClientError> {
+    async fn authenticate(
+        stream: &mut EspHomeClient,
+        password: Option<String>,
+    ) -> Result<(), ClientError> {
         use crate::proto::ConnectRequest;
 
         stream
