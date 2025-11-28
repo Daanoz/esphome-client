@@ -70,6 +70,7 @@ jobs:
         rust: [stable, 1.82]
         features:
           - --features=default
+          - --features=api-1-13
           - --features=api-1-12
           - --features=api-1-10
           - --features=api-1-9

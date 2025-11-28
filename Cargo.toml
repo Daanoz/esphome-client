@@ -22,6 +22,8 @@ default = ["discovery"]
 # Enable mDNS service discovery
 discovery = ["dep:mdns-sd", "tokio/rt", "tokio/sync"]
 
+# Use api released with ESPHome 2025.11.0
+api-1-13 = []
 # Use api released with ESPHome 2025.8.0
 api-1-12 = []
 # Use api released with ESPHome 2025.5.0

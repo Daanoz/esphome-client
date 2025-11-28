@@ -5,7 +5,7 @@ use regex::Regex;
 use std::io::Result;
 
 fn main() -> Result<()> {
-    let versions = vec!["1.12", "1.10", "1.9", "1.8"];
+    let versions = vec!["1.13", "1.12", "1.10", "1.9", "1.8"];
     for version in versions {
         let dir = format!("src/proto/{}/", version);
         let proto_file = format!("{}api.proto", dir);
