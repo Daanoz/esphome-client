@@ -7,6 +7,7 @@ to look for the api version response in the [src code](https://github.com/esphom
 
 ## Currently supported versions:
 
+- [1.13 (2025.11.0)](https://github.com/esphome/esphome/blob/2025.11.0/esphome/components/api/api.proto)
 - [1.12 (2025.8.0)](https://github.com/esphome/esphome/blob/2025.8.0/esphome/components/api/api.proto)
 - [1.10 (2025.5.0)](https://github.com/esphome/esphome/blob/2025.5.0/esphome/components/api/api.proto)
 - [1.9 (2024.4.0)](https://github.com/esphome/esphome/blob/2024.4.0/esphome/components/api/api.proto)

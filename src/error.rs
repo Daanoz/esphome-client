@@ -13,7 +13,10 @@ pub enum ClientError {
 
     /// Authentication failed during handshake.
     #[error("Authentication failed: {reason}")]
-    Authentication { reason: String },
+    Authentication {
+        /// Reason why authentication has failed.
+        reason: String,
+    },
 
     /// Stream-related errors.
     #[error("Stream error: {0}")]
@@ -25,19 +28,33 @@ pub enum ClientError {
 
     /// Timeout during operation.
     #[error("Operation timed out after {timeout_ms}ms")]
-    Timeout { timeout_ms: u128 },
+    Timeout {
+        /// Duration in milliseconds after which the operation timed out.
+        timeout_ms: u128,
+    },
 
     /// Configuration error.
     #[error("Configuration error: {message}")]
-    Configuration { message: String },
+    Configuration {
+        /// Description of the configuration error.
+        message: String,
+    },
 
     /// Protocol mismatch whilst connecting.
     #[error("Protocol mismatch: expected {expected}, actual {actual}")]
-    ProtocolMismatch { expected: String, actual: String },
+    ProtocolMismatch {
+        /// Expected protocol version.
+        expected: String,
+        /// Actual protocol version.
+        actual: String,
+    },
 
     /// Invalid internal state.
     #[error("Invalid internal state: {reason}")]
-    InvalidInternalState { reason: String },
+    InvalidInternalState {
+        /// Reason for the invalid internal state.
+        reason: String,
+    },
 }
 
 /// Connection-specific errors.
@@ -46,14 +63,19 @@ pub enum ConnectionError {
     /// Failed to establish TCP connection.
     #[error("Failed to connect to {address}: {source}")]
     TcpConnect {
+        /// Address we attempted to connect to.
         address: String,
+        /// Source IO error.
         #[source]
         source: StdIoError,
     },
 
     /// Noise protocol handshake failed.
     #[error("Noise handshake failed: {reason}")]
-    NoiseHandshake { reason: String },
+    NoiseHandshake {
+        /// Reason for the handshake failure.
+        reason: String,
+    },
 }
 
 /// Stream-related errors.
@@ -61,15 +83,24 @@ pub enum ConnectionError {
 pub enum StreamError {
     /// Invalid frame format received.
     #[error("Invalid frame format: {reason}")]
-    InvalidFrame { reason: String },
+    InvalidFrame {
+        /// Reason why the frame is invalid.
+        reason: String,
+    },
 
     /// Frame size exceeds maximum allowed size.
     #[error("Frame too large: {size} bytes (max: {max_size})")]
-    FrameTooLarge { size: usize, max_size: usize },
+    FrameTooLarge {
+        /// Size of the frame.
+        size: usize,
+        /// Maximum allowed size.
+        max_size: usize,
+    },
 
     /// Failed to read from stream.
     #[error("Read error: {source}")]
     Read {
+        /// Source IO error.
         #[source]
         source: StdIoError,
     },
@@ -77,6 +108,7 @@ pub enum StreamError {
     /// Failed to write to stream.
     #[error("Write error: {source}")]
     Write {
+        /// Source IO error.
         #[source]
         source: StdIoError,
     },
@@ -88,6 +120,7 @@ pub enum ProtocolError {
     /// Failed to parse protobuf message.
     #[error("Protobuf parsing failed: {source}")]
     ProtobufParse {
+        /// Source decode error.
         #[source]
         source: prost::DecodeError,
     },
@@ -95,6 +128,7 @@ pub enum ProtocolError {
     /// Failed to encode protobuf message.
     #[error("Protobuf encoding failed: {source}")]
     ProtobufEncode {
+        /// Source encode error.
         #[source]
         source: prost::EncodeError,
     },
@@ -109,7 +143,10 @@ pub enum ProtocolError {
 
     /// Message validation failed.
     #[error("Message validation failed: {reason}")]
-    ValidationFailed { reason: String },
+    ValidationFailed {
+        /// Reason for validation failure.
+        reason: String,
+    },
 }
 
 /// Discovery-related errors.
@@ -117,7 +154,10 @@ pub enum ProtocolError {
 pub enum DiscoveryError {
     /// Error during initialization of the discovery client.
     #[error("Initialization error: {reason}")]
-    InitializationError { reason: String },
+    InitializationError {
+        /// Reason for the initialization error.
+        reason: String,
+    },
 
     /// Discovery was aborted, e.g., due to a shutdown signal.
     #[error("Discovery aborted")]
@@ -129,19 +169,31 @@ pub enum DiscoveryError {
 pub enum NoiseError {
     /// Noise handshake state error.
     #[error("Noise handshake error: {reason}")]
-    Handshake { reason: String },
+    Handshake {
+        /// Reason for the handshake error.
+        reason: String,
+    },
 
     /// Noise transport state error.
     #[error("Noise transport error: {reason}")]
-    Transport { reason: String },
+    Transport {
+        /// Reason for the transport error.
+        reason: String,
+    },
 
     /// Invalid noise key format.
     #[error("Invalid noise key: {reason}")]
-    InvalidKey { reason: String },
+    InvalidKey {
+        /// Reason for the invalid key error.
+        reason: String,
+    },
 
     /// Noise encryption/decryption failed.
     #[error("Noise crypto operation failed: {reason}")]
-    CryptoOperation { reason: String },
+    CryptoOperation {
+        /// Reason for the crypto operation error.
+        reason: String,
+    },
 }
 
 /// Convert snow errors to `NoiseError`.

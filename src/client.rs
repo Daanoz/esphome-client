@@ -17,12 +17,13 @@ use tokio::time::timeout;
 
 use crate::{
     error::{ClientError, ProtocolError},
-    proto::{ConnectRequest, DisconnectRequest, EspHomeMessage, HelloRequest, PingResponse},
+    proto::{DisconnectRequest, EspHomeMessage, HelloRequest, PingResponse},
     API_VERSION,
 };
 
 type StreamPair = (StreamReader, StreamWriter);
 
+/// Client for sending and receiving messages to an ESPHome API server.
 #[derive(Debug)]
 pub struct EspHomeClient {
     streams: StreamPair,
@@ -98,6 +99,7 @@ impl EspHomeClient {
     }
 }
 
+/// Clone-able write stream for sending messages to the ESPHome device.
 #[derive(Debug, Clone)]
 pub struct EspHomeClientWriteStream {
     writer: StreamWriter,
@@ -119,6 +121,7 @@ impl EspHomeClientWriteStream {
     }
 }
 
+/// Builder for configuring and connecting to an ESPHome API server.
 #[derive(Debug)]
 pub struct EspHomeClientBuilder {
     addr: Option<String>,
@@ -287,6 +290,58 @@ impl EspHomeClientBuilder {
                 }
             }
         }
+        Self::authenticate(stream, password).await
+    }
+
+    #[cfg(not(any(
+        feature = "api-1-12",
+        feature = "api-1-10",
+        feature = "api-1-9",
+        feature = "api-1-8"
+    )))]
+    async fn authenticate(
+        stream: &mut EspHomeClient,
+        password: Option<String>,
+    ) -> Result<(), ClientError> {
+        use crate::proto::AuthenticationRequest;
+
+        stream
+            .try_write(AuthenticationRequest {
+                password: password.unwrap_or_default(),
+            })
+            .await?;
+        loop {
+            let response = stream.try_read().await?;
+            match response {
+                EspHomeMessage::AuthenticationResponse(response) => {
+                    if response.invalid_password {
+                        return Err(ClientError::Authentication {
+                            reason: "Invalid password".to_owned(),
+                        });
+                    }
+                    tracing::info!("Connection to ESPHome API established successfully.");
+                    break;
+                }
+                _ => {
+                    tracing::debug!("Unexpected response during connection setup: {response:?}");
+                }
+            }
+        }
+        Ok(())
+    }
+
+    #[cfg(any(
+        feature = "api-1-12",
+        feature = "api-1-10",
+        feature = "api-1-9",
+        feature = "api-1-8"
+    ))]
+    async fn authenticate(
+        stream: &mut EspHomeClient,
+        password: Option<String>,
+    ) -> Result<(), ClientError> {
+        use crate::proto::ConnectRequest;
+
         stream
             .try_write(ConnectRequest {
                 password: password.unwrap_or_default(),

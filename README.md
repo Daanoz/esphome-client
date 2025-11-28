@@ -52,7 +52,8 @@ it will use the latest available. **Note** this means your implementation might 
 you don't pin down the used version and this crate is updated. It's recommended that you add the feature flag with the version in your Cargo.toml to avoid unexpected issues in the future.
 
 Currently supported:
-- 1.12 (`api-1-12`) (2025.8.0) _this is the current default_
+- 1.13 (`api-1-13`) (2025.11.0) _this is the current default_
+- 1.12 (`api-1-12`) (2025.8.0)
 - 1.10 (`api-1-10`) (2025.5.0)
 - 1.9 (`api-1-9`) (2024.4.0)
 - 1.8 (`api-1-8`) (2023.5.0)

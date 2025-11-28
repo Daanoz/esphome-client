@@ -9,6 +9,7 @@ use tokio::{sync::mpsc, task::JoinHandle};
 
 const SERVICE_NAME: &str = "_esphomelib._tcp.local.";
 
+/// Information about a discovered ESPHome device.
 #[derive(Clone, Debug)]
 pub struct DeviceInfo {
     record: ServiceInfo,
