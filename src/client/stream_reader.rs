@@ -52,7 +52,15 @@ impl StreamReader {
                 .map_err(|e| StreamError::Read { source: e })?;
             if ready.is_readable() {
                 match self.read_stream.try_read_buf(&mut self.buffer) {
-                    Ok(n) if n < 1 => {}
+                    Ok(0) => {
+                        return Err(StreamError::Read {
+                            source: io::Error::new(
+                                io::ErrorKind::UnexpectedEof,
+                                "connection closed by remote",
+                            ),
+                        }
+                        .into());
+                    }
                     Ok(_) => {
                         if let Ok(Some(decoded)) = self.decoder.decode(&mut self.buffer) {
                             tracing::trace!("Read {} bytes: {:?}", decoded.len(), decoded);
