@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4](https://github.com/Daanoz/esphome-client/compare/v0.1.3...v0.1.4) (2026-05-30)
+
+
+### Bug Fixes
+
+* busy-spin on TCP EOF in stream_reader ([#10](https://github.com/Daanoz/esphome-client/issues/10)) ([39aa74b](https://github.com/Daanoz/esphome-client/commit/39aa74bb5c71b73256c39527d2dfdeadf73071fc))
+
 ## [0.1.3](https://github.com/Daanoz/esphome-client/compare/v0.1.2...v0.1.3) (2026-02-03)
 
 
