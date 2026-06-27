@@ -5,11 +5,23 @@
 #![allow(clippy::struct_excessive_bools, reason = "Generated prost code")]
 #![allow(clippy::derive_partial_eq_without_eq, reason = "Generated prost code")]
 #![allow(clippy::empty_structs_with_brackets, reason = "Generated prost code")]
+#![allow(clippy::too_long_first_doc_paragraph, reason = "Generated prost code")]
 #![allow(missing_docs, reason = "Generated prost code")]
 #[cfg(any(
     all(
+        feature = "api-1-14",
+        any(
+            feature = "api-1-13",
+            feature = "api-1-12",
+            feature = "api-1-10",
+            feature = "api-1-9",
+            feature = "api-1-8"
+        )
+    ),
+    all(
         feature = "api-1-13",
         any(
+            feature = "api-1-14",
             feature = "api-1-12",
             feature = "api-1-10",
             feature = "api-1-9",
@@ -19,6 +31,7 @@
     all(
         feature = "api-1-12",
         any(
+            feature = "api-1-14",
             feature = "api-1-13",
             feature = "api-1-10",
             feature = "api-1-9",
@@ -28,6 +41,7 @@
     all(
         feature = "api-1-10",
         any(
+            feature = "api-1-14",
             feature = "api-1-13",
             feature = "api-1-12",
             feature = "api-1-9",
@@ -37,6 +51,7 @@
     all(
         feature = "api-1-9",
         any(
+            feature = "api-1-14",
             feature = "api-1-13",
             feature = "api-1-12",
             feature = "api-1-10",
@@ -46,6 +61,7 @@
     all(
         feature = "api-1-8",
         any(
+            feature = "api-1-14",
             feature = "api-1-13",
             feature = "api-1-12",
             feature = "api-1-10",
@@ -55,13 +71,16 @@
 ))]
 compile_error!("Cannot combine multiple API version features. Please enable only one of them.");
 #[cfg(not(any(
+    feature = "api-1-14",
     feature = "api-1-13",
     feature = "api-1-12",
     feature = "api-1-10",
     feature = "api-1-9",
     feature = "api-1-8"
 )))]
-include!(concat!(env!("OUT_DIR"), "/esphome_proto_1.13.rs")); // Default to latest
+include!(concat!(env!("OUT_DIR"), "/esphome_proto_1.14.rs")); // Default to latest
+#[cfg(feature = "api-1-14")]
+include!(concat!(env!("OUT_DIR"), "/esphome_proto_1.14.rs"));
 #[cfg(feature = "api-1-13")]
 include!(concat!(env!("OUT_DIR"), "/esphome_proto_1.13.rs"));
 #[cfg(feature = "api-1-12")]
