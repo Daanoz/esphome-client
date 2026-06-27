@@ -1,4 +1,6 @@
-use mdns_sd::{Error as mdns_error, IfKind, Receiver, ServiceDaemon, ServiceEvent, ServiceInfo};
+use mdns_sd::{
+    Error as mdns_error, IfKind, Receiver, ResolvedService, ServiceDaemon, ServiceEvent,
+};
 use std::{
     collections::HashMap,
     fmt,
@@ -12,7 +14,7 @@ const SERVICE_NAME: &str = "_esphomelib._tcp.local.";
 /// Information about a discovered ESPHome device.
 #[derive(Clone, Debug)]
 pub struct DeviceInfo {
-    record: ServiceInfo,
+    record: ResolvedService,
 }
 
 impl Eq for DeviceInfo {}
@@ -29,7 +31,7 @@ impl DeviceInfo {
     #[must_use]
     pub fn socket_address(&self) -> Option<SocketAddr> {
         let addr = self.record.get_addresses().iter().next()?.to_owned();
-        Some(SocketAddr::new(addr, self.record.get_port()))
+        Some(SocketAddr::new(addr.to_ip_addr(), self.record.get_port()))
     }
 
     /// Gets the device's hostname.
@@ -178,7 +180,7 @@ impl ResultStream {
                 match event {
                     ServiceEvent::ServiceResolved(info) => {
                         tracing::debug!("Discovered device: {info:?}");
-                        if let Err(e) = tx.send(DeviceInfo { record: info }).await {
+                        if let Err(e) = tx.send(DeviceInfo { record: *info }).await {
                             tracing::error!("Failed to send discovered device info: {e}");
                         }
                     }
@@ -226,6 +228,8 @@ impl Drop for ResultStream {
 
 #[cfg(test)]
 mod tests {
+    use mdns_sd::ServiceInfo;
+
     use super::*;
 
     use std::net::{IpAddr, Ipv4Addr};
@@ -245,7 +249,8 @@ mod tests {
             6053,
             props,
         )
-        .unwrap();
+        .unwrap()
+        .as_resolved_service();
 
         let device = DeviceInfo { record: info };
 
@@ -265,7 +270,8 @@ mod tests {
             6053,
             HashMap::<String, String>::new(),
         )
-        .unwrap();
+        .unwrap()
+        .as_resolved_service();
 
         let device = DeviceInfo { record: info };
         let addr = device.socket_address().unwrap();

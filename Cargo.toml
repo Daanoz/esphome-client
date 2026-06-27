@@ -37,7 +37,7 @@ api-1-8 = []
 
 [dependencies]
 base64 = "0.22.1"
-mdns-sd = { version = "0.13.11", optional = true }
+mdns-sd = { version = ">0.15.0", optional = true }
 prost = "0.14.1"
 snow = "0.9.6"
 thiserror = "2.0"
