@@ -11,7 +11,7 @@ fn main() -> Result<()> {
         let proto_file = format!("{}api.proto", dir);
         let service_generator = Box::new(ServiceGenerator::new(version, &proto_file));
         let mut config = prost_build::Config::new();
-        config.default_package_filename(format!("esphome_proto_{version}"));
+        config.default_package_filename(format!("esphome_proto_api-{}", version.replace('.', "-")));
         config.service_generator(service_generator);
         config.compile_protos(&[&proto_file], &[dir]).unwrap();
     }
