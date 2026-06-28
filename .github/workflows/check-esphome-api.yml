@@ -1,0 +1,116 @@
+name: Check ESPHome API Version
+
+on:
+  schedule:
+    - cron: '0 6 * * *' # Daily at 06:00 UTC
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-api-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Fetch latest ESPHome releases and check for new API versions
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # Fetch the 10 most recent releases from esphome/esphome
+          RELEASES=$(gh api repos/esphome/esphome/releases --paginate --jq '.[0:10] | .[].tag_name')
+
+          for TAG in $RELEASES; do
+            echo "Checking release $TAG..."
+
+            # Download api_connection.cpp for this release
+            CPP_URL="https://raw.githubusercontent.com/esphome/esphome/${TAG}/esphome/components/api/api_connection.cpp"
+            if ! CPP_CONTENT=$(curl -sf "$CPP_URL"); then
+              echo "  Could not fetch api_connection.cpp for $TAG, skipping."
+              continue
+            fi
+
+            # Extract api_version_major and api_version_minor
+            MAJOR=$(echo "$CPP_CONTENT" | grep -oP 'resp\.api_version_major\s*=\s*\K\d+' | head -1)
+            MINOR=$(echo "$CPP_CONTENT" | grep -oP 'resp\.api_version_minor\s*=\s*\K\d+' | head -1)
+
+            if [[ -z "$MAJOR" || -z "$MINOR" ]]; then
+              echo "  Could not extract API version from $TAG, skipping."
+              continue
+            fi
+
+            VERSION="${MAJOR}.${MINOR}"
+            echo "  Found API version: $VERSION"
+
+            # Check if this version directory already exists
+            if [[ -d "src/proto/${VERSION}" ]]; then
+              echo "  Directory src/proto/${VERSION} already exists, skipping."
+              continue
+            fi
+
+            # Check if a PR for this version already exists
+            EXISTING_PR=$(gh pr list --search "feat: add ESPHome API proto version ${VERSION}" --state open --json number --jq 'length')
+            if [[ "$EXISTING_PR" -gt 0 ]]; then
+              echo "  Open PR for version ${VERSION} already exists, skipping."
+              continue
+            fi
+
+            echo "  New API version ${VERSION} found in release ${TAG}! Creating PR..."
+
+            # Download the proto files from the same release tag
+            PROTO_URL="https://raw.githubusercontent.com/esphome/esphome/${TAG}/esphome/components/api/api.proto"
+            OPTIONS_URL="https://raw.githubusercontent.com/esphome/esphome/${TAG}/esphome/components/api/api_options.proto"
+
+            API_PROTO=$(curl -sf "$PROTO_URL") || { echo "  Failed to download api.proto"; continue; }
+            API_OPTIONS=$(curl -sf "$OPTIONS_URL") || { echo "  Failed to download api_options.proto"; continue; }
+
+            # Create the new version directory and write proto files
+            mkdir -p "src/proto/${VERSION}"
+            echo "$API_PROTO" > "src/proto/${VERSION}/api.proto"
+            echo "$API_OPTIONS" > "src/proto/${VERSION}/api_options.proto"
+
+            # Set outputs for the PR creation step
+            echo "new_version=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "release_tag=${TAG}" >> "$GITHUB_OUTPUT"
+            echo "found=true" >> "$GITHUB_OUTPUT"
+
+            # Only process the first new version found
+            break
+          done
+
+      - name: Create Pull Request
+        if: steps.check.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.check.outputs.new_version }}
+          RELEASE_TAG: ${{ steps.check.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          BRANCH="feat/api-version-${VERSION}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH"
+          git add "src/proto/${VERSION}/"
+          git commit -m "feat: add ESPHome API proto version ${VERSION}"
+          git push origin "$BRANCH"
+
+          gh pr create \
+            --title "feat: add ESPHome API proto version ${VERSION}" \
+            --body "New ESPHome API proto version **${VERSION}** detected in release [\`${RELEASE_TAG}\`](https://github.com/esphome/esphome/releases/tag/${RELEASE_TAG}).
+
+          This PR adds the proto files for API version ${VERSION}:
+          - \`src/proto/${VERSION}/api.proto\`
+          - \`src/proto/${VERSION}/api_options.proto\`
+
+          > **Note:** The \`build.rs\` versions list, \`Cargo.toml\` features, and \`proto_loader.rs\` macro invocation may need to be updated manually to integrate this new version." \
+            --base main \
+            --head "$BRANCH"
