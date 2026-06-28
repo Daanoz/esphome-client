@@ -1,21 +1,103 @@
 use heck::ToUpperCamelCase;
 use proc_macro2::Ident;
 use quote::{format_ident, quote};
+use std::path::Path;
 use regex::Regex;
-use std::io::Result;
 
-fn main() -> Result<()> {
-    let versions = vec!["1.14", "1.13", "1.12", "1.10", "1.9", "1.8"];
-    for version in versions {
-        let dir = format!("src/proto/{}/", version);
-        let proto_file = format!("{}api.proto", dir);
-        let service_generator = Box::new(ServiceGenerator::new(version, &proto_file));
-        let mut config = prost_build::Config::new();
-        config.default_package_filename(format!("esphome_proto_api-{}", version.replace('.', "-")));
-        config.service_generator(service_generator);
-        config.compile_protos(&[&proto_file], &[dir]).unwrap();
+fn main() {
+    let manifest_path = env!("CARGO_MANIFEST_DIR");
+    let repo_root = Path::new(manifest_path).parent().expect("Failed to get parent directory of manifest path");
+    let proto_dir = repo_root.join("src/proto");
+
+    println!("Generating Rust code from proto files in {:?}", proto_dir);
+
+    let mut versions = vec![];
+    for entry in std::fs::read_dir(&proto_dir).expect("Failed to read proto directory") {
+        let entry = entry.expect("Failed to read directory entry");
+        let path = entry.path();
+        if path.is_dir() {
+            let version = path.file_name().expect("Failed to get directory name").to_str().expect("Failed to convert OsStr to str");
+            versions.push(version.to_string());
+            let version = version.trim_start_matches("api_").replace('_', ".");
+            println!("Generating code for ESPHome API version {}", version);
+            generate_code_for_version(&version, &path);
+        }
     }
-    Ok(())
+
+    generate_proto_api_file(&proto_dir, versions);
+}
+
+// Generates Rust code for a specific ESPHome API version from the proto files in the given path.
+fn generate_code_for_version(version: &str, path: &Path) {
+    let proto_file = path.join("api.proto").to_string_lossy().to_string();
+    let service_generator = Box::new(ServiceGenerator::new(version, &proto_file));
+    let mut config = prost_build::Config::new();
+    config.default_package_filename("mod");
+    config.service_generator(service_generator);
+    config.out_dir(path);
+    config.compile_protos(&[&proto_file], &[path]).unwrap();
+}
+
+// Generates the `api.rs` file that includes the correct module based on the enabled feature.
+fn generate_proto_api_file(path: &Path, mut versions: Vec<String>) {
+    let api_file_path = path.join("api.rs");
+    let mut content = String::from(
+        "// This file is generated automatically. Do not edit manually.\n\n"
+    );
+    versions.sort_by(|a, b| 
+    {
+        let a_parts: Vec<u32> = a.trim_start_matches("api_").split('_').map(|s| s.parse::<u32>().unwrap()).collect();
+        let b_parts: Vec<u32> = b.trim_start_matches("api_").split('_').map(|s| s.parse::<u32>().unwrap()).collect();
+        a_parts.cmp(&b_parts)
+    });
+    versions.reverse(); // Sort in descending order to have the latest version first
+    let default_version = versions.first().expect("No versions found");
+
+    // Mutually exclusive feature checks
+    content.push_str("// Ensure that only one of the specified features can be enabled at a time\n#[cfg(any(\n");
+    for version in &versions {
+        let version_feature = version_to_feature_name(version);
+        content.push_str(&format!("    all(feature = \"{version_feature}\", any({})),\n", list_other_features(&versions, version)));
+    }
+    content.push_str("))]\ncompile_error!(\"Cannot combine multiple API version features. Please enable only one of them.\");\n");
+
+    // Include module matching feature flags for each version
+    for version in &versions {
+        let version_feature = version_to_feature_name(version);
+        let other_versions = list_other_features(&versions, version);
+
+        // Add default case
+        if version == default_version {
+            content.push_str(&format!("
+// If no feature is specified, default to the latest version ({version})
+#[cfg(not(any(feature = \"{version_feature}\", {other_versions})))]
+mod {version};
+#[cfg(not(any(feature = \"{version_feature}\", {other_versions})))]
+pub use {version}::*;
+"));
+        }
+        content.push_str(&format!("
+// If feature \"{version_feature}\" is specified, include the corresponding module
+#[cfg(all(feature = \"{version_feature}\", not(any({other_versions}))))]
+mod {version};
+#[cfg(all(feature = \"{version_feature}\", not(any({other_versions}))))]
+pub use {version}::*;
+"));
+    }
+
+    std::fs::write(api_file_path, content).expect("Failed to write api.rs file");
+}
+
+fn list_other_features(versions: &[String], current_version: &str) -> String {
+    versions.iter()
+        .filter(|&v| v != current_version)
+        .map(|v| format!("feature = \"{}\"", version_to_feature_name(v)))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn version_to_feature_name(version: &str) -> String {
+    version.replace('_', "-")
 }
 
 struct ServiceGenerator {

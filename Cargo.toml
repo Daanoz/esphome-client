@@ -22,6 +22,7 @@ default = ["discovery"]
 # Enable mDNS service discovery
 discovery = ["dep:mdns-sd", "tokio/rt", "tokio/sync"]
 
+# Esphome API versions.
 # Use api released with ESPHome 2026.1.0
 api-1-14 = []
 # Use api released with ESPHome 2025.11.0
@@ -47,10 +48,3 @@ tracing = "0.1.41"
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = "0.3"
-
-[build-dependencies]
-heck = "0.5.0"
-proc-macro2 = "1.0.95"
-prost-build = "0.14.4"
-quote = "1.0.40"
-regex = "1.11.1"
