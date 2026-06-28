@@ -4,6 +4,9 @@ on:
   schedule:
     - cron: '0 6 * * *' # Daily at 06:00 UTC
   workflow_dispatch: # Allow manual trigger
+  push:
+    branches:
+      - build/add_action_to_auto_update_esphome
 
 permissions:
   contents: write
@@ -23,8 +26,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Fetch the 10 most recent releases from esphome/esphome
-          RELEASES=$(gh api repos/esphome/esphome/releases --paginate --jq '.[0:10] | .[].tag_name')
+          # Fetch the 3 most recent releases from esphome/esphome
+          RELEASES=$(gh api repos/esphome/esphome/releases --paginate --jq '.[0:3] | .[].tag_name')
 
           for TAG in $RELEASES; do
             echo "Checking release $TAG..."
