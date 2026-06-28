@@ -7,7 +7,7 @@ use crate::error::{ClientError, ConnectionError, NoiseError, ProtocolError, Stre
 
 use super::{plain::PLAIN_PREAMBLE, stream_reader::StreamDecoder, stream_writer::StreamEncoder};
 
-use super::{stream_reader::StreamReader, stream_writer::StreamWriter, StreamPair};
+use super::{StreamPair, stream_reader::StreamReader, stream_writer::StreamWriter};
 
 const ZERO_BYTE: u8 = 0x00;
 const NOISE_PROLOGUE: &[u8; 14] = b"NoiseAPIInit\x00\x00";
@@ -118,18 +118,17 @@ impl StreamEncoder for NoiseCoder {
 }
 
 fn create_noise_client(key: &str) -> Result<snow::HandshakeState, ClientError> {
-    use base64::{engine::general_purpose, Engine as _};
-    let key_bytes = general_purpose::STANDARD
+    use base64::{Engine as _, engine::general_purpose};
+    let key_bytes: [u8; 32] = general_purpose::STANDARD
         .decode(key)
         .map_err(|e| NoiseError::InvalidKey {
             reason: e.to_string(),
+        })?
+        .try_into()
+        .map_err(|e: Vec<u8>| NoiseError::InvalidKey {
+            reason: format!("Invalid PSK length: {}", e.len()),
         })?;
-    if key_bytes.len() != 32 {
-        return Err(NoiseError::InvalidKey {
-            reason: "Invalid PSK length".into(),
-        }
-        .into());
-    }
+
     #[allow(clippy::unwrap_in_result, reason = "Valid encryption protocol")]
     let noise = snow::Builder::new(
         "Noise_NNpsk0_25519_ChaChaPoly_SHA256"
@@ -137,7 +136,11 @@ fn create_noise_client(key: &str) -> Result<snow::HandshakeState, ClientError> {
             .expect("Valid encryption protocol"),
     )
     .prologue(NOISE_PROLOGUE)
+    .expect("Valid prologue")
     .psk(0, &key_bytes)
+    .map_err(|e| NoiseError::InvalidKey {
+        reason: e.to_string(),
+    })?
     .build_initiator()
     .map_err(|e| NoiseError::InvalidKey {
         reason: e.to_string(),
@@ -262,22 +265,23 @@ mod tests {
     use std::io;
 
     fn create_key(seed: u8) -> String {
-        use base64::{engine::general_purpose, Engine as _};
+        use base64::{Engine as _, engine::general_purpose};
         let key = vec![seed; 32];
         general_purpose::STANDARD.encode(key)
     }
 
     fn create_noise_server(key: &str) -> Result<snow::HandshakeState, io::Error> {
-        use base64::{engine::general_purpose, Engine as _};
-        let key_bytes = general_purpose::STANDARD
+        use base64::{Engine as _, engine::general_purpose};
+        let key_bytes: [u8; 32] = general_purpose::STANDARD
             .decode(key)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-        if key_bytes.len() != 32 {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Invalid PSK length",
-            ));
-        }
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?
+            .try_into()
+            .map_err(|e: Vec<u8>| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("Invalid PSK length: {}", e.len()),
+                )
+            })?;
         #[allow(clippy::unwrap_in_result, reason = "Valid encryption protocol")]
         let noise = snow::Builder::new(
             "Noise_NNpsk0_25519_ChaChaPoly_SHA256"
@@ -285,7 +289,9 @@ mod tests {
                 .expect("Valid encryption protocol"),
         )
         .prologue(NOISE_PROLOGUE)
+        .expect("Valid prologue")
         .psk(0, &key_bytes)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?
         .build_responder()
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         Ok(noise)
@@ -347,7 +353,7 @@ mod tests {
 
     #[test]
     fn test_create_noise_client_invalid_key_length() {
-        use base64::{engine::general_purpose, Engine as _};
+        use base64::{Engine as _, engine::general_purpose};
         let key = general_purpose::STANDARD.encode([0u8; 16]);
         let result = create_noise_client(&key);
         result.unwrap_err();
@@ -403,9 +409,10 @@ mod tests {
         let result = parse_noise_response(data, &mut client);
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(err
-            .to_string()
-            .contains("Connection error: Noise handshake failed: Incorrect preamble:"));
+        assert!(
+            err.to_string()
+                .contains("Connection error: Noise handshake failed: Incorrect preamble:")
+        );
     }
 
     #[test]
@@ -417,6 +424,9 @@ mod tests {
         let result = parse_noise_response(data, &mut client);
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert_eq!(err.to_string(), "Connection error: Noise handshake failed: Noise transport error: state error: NotTurnToRead");
+        assert_eq!(
+            err.to_string(),
+            "Connection error: Noise handshake failed: Noise transport error: state error: NotTurnToRead"
+        );
     }
 }

@@ -1,7 +1,7 @@
 [package]
 name = "esphome-client"
 version = "0.1.5"
-edition = "2021"
+edition = "2024"
 description = "ESPHome client library for Rust"
 license = "MIT"
 authors = [
@@ -13,7 +13,7 @@ documentation = "https://docs.rs/esphome-client"
 readme = "README.md"
 keywords = ["esphome", "iot", "smart-home", "home-automation", "api"]
 categories = ["network-programming", "api-bindings"]
-rust-version = "1.82"
+rust-version = "1.85"
 
 [lib]
 
@@ -38,8 +38,8 @@ api-1-8 = []
 [dependencies]
 base64 = "0.22.1"
 mdns-sd = { version = ">0.15.0", optional = true }
-prost = "0.14.1"
-snow = "0.9.6"
+prost = "0.14.4"
+snow = "0.10.0"
 thiserror = "2.0"
 tokio = { version = "1", features = ["io-util", "net", "time"] }
 tracing = "0.1.41"
@@ -51,6 +51,6 @@ tracing-subscriber = "0.3"
 [build-dependencies]
 heck = "0.5.0"
 proc-macro2 = "1.0.95"
-prost-build = "0.14.1"
+prost-build = "0.14.4"
 quote = "1.0.40"
 regex = "1.11.1"

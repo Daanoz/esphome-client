@@ -1,10 +1,10 @@
 use tokio::net::TcpStream;
 
 use super::{
+    StreamPair,
     noise::NOISE_PREAMBLE,
     stream_reader::{StreamDecoder, StreamReader},
     stream_writer::{StreamEncoder, StreamWriter},
-    StreamPair,
 };
 use crate::error::{ClientError, ConnectionError, ProtocolError, StreamError};
 

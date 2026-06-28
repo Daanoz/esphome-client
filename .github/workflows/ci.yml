@@ -67,7 +67,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [stable, 1.82]
+        rust: [stable, 1.85]
         features:
           - --features=default
           - --features=api-1-13

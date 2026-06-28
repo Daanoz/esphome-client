@@ -9,7 +9,7 @@
 //! # Example: cargo run --example noise_connection -- 192.168.1.100:6053 AAECAwQFBgcICRAREhMUFRYXGBkgISIjJCUmJygpMDE=
 //! ```
 
-use esphome_client::{types::DeviceInfoRequest, EspHomeClient};
+use esphome_client::{EspHomeClient, types::DeviceInfoRequest};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
