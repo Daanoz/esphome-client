@@ -1,12 +1,12 @@
 use esphome_client::{
-    types::{EspHomeMessage, HelloRequest, HelloResponse},
     EspHomeClient,
+    types::{EspHomeMessage, HelloRequest, HelloResponse},
 };
 use prost::Message;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpListener,
-    time::{timeout, Duration},
+    time::{Duration, timeout},
 };
 
 #[tokio::test]

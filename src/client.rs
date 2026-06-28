@@ -16,9 +16,9 @@ use stream_writer::StreamWriter;
 use tokio::time::timeout;
 
 use crate::{
+    API_VERSION,
     error::{ClientError, ProtocolError},
     proto::{DisconnectRequest, EspHomeMessage, HelloRequest, PingResponse},
-    API_VERSION,
 };
 
 type StreamPair = (StreamReader, StreamWriter);

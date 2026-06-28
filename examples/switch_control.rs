@@ -10,10 +10,10 @@
 //! ```
 
 use esphome_client::{
+    EspHomeClient,
     types::{
         EspHomeMessage, ListEntitiesRequest, ListEntitiesSwitchResponse, SwitchCommandRequest,
     },
-    EspHomeClient,
 };
 use std::collections::HashMap;
 use std::io::Write;

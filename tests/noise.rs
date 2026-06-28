@@ -1,12 +1,12 @@
 use esphome_client::{
-    types::{EspHomeMessage, HelloRequest, HelloResponse},
     EspHomeClient,
+    types::{EspHomeMessage, HelloRequest, HelloResponse},
 };
 use prost::Message;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
-    time::{timeout, Duration},
+    time::{Duration, timeout},
 };
 
 const KEY: &str = "AAECAwQFBgcICRAREhMUFRYXGBkgISIjJCUmJygpMDE="; // Dummy key for testing
@@ -218,20 +218,22 @@ async fn send_noise_frame(stream: &mut TcpStream, payload: &[u8]) {
 }
 
 fn noise_responder() -> snow::HandshakeState {
-    use base64::{engine::general_purpose, Engine as _};
-    let key_bytes = general_purpose::STANDARD
+    use base64::{Engine as _, engine::general_purpose};
+    let key_bytes: [u8; 32] = general_purpose::STANDARD
         .decode(KEY)
-        .expect("Valid base64 key");
-    if key_bytes.len() != 32 {
-        panic!("Invalid PSK length");
-    }
+        .expect("Valid base64 key")
+        .try_into()
+        .expect("Invalid PSK length");
+
     snow::Builder::new(
         "Noise_NNpsk0_25519_ChaChaPoly_SHA256"
             .parse()
             .expect("Valid encryption protocol"),
     )
     .prologue(b"NoiseAPIInit\x00\x00")
+    .expect("Valid prologue")
     .psk(0, &key_bytes)
+    .expect("Valid psk")
     .build_responder()
     .expect("Failed to setup snow initiator")
 }

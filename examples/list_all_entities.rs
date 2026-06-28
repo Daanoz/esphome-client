@@ -10,8 +10,8 @@
 //! ```
 
 use esphome_client::{
-    types::{EspHomeMessage, ListEntitiesRequest},
     EspHomeClient,
+    types::{EspHomeMessage, ListEntitiesRequest},
 };
 
 #[allow(unused_mut, reason = "support multiple versions")]

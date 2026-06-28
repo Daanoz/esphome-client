@@ -10,8 +10,8 @@
 //! ```
 
 use esphome_client::{
-    types::{EspHomeMessage, ListEntitiesRequest, SubscribeStatesRequest},
     EspHomeClient,
+    types::{EspHomeMessage, ListEntitiesRequest, SubscribeStatesRequest},
 };
 use std::collections::HashMap;
 
