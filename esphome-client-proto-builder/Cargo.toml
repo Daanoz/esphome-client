@@ -1,0 +1,23 @@
+[package]
+name = "esphome-client-proto-builder"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+authors = [
+  "Daan Sieben"
+]
+repository = "https://github.com/daanoz/esphome-client"
+homepage = "https://github.com/daanoz/esphome-client"
+documentation = "https://docs.rs/esphome-client"
+readme = "README.md"
+publish = false
+
+
+[dependencies]
+heck = "0.5.0"
+proc-macro2 = "1.0.106"
+prost = "0.14.4"
+prost-build = "0.14.4"
+quote = "1.0.46"
+regex = "1.12.4"
