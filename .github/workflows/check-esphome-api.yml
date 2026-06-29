@@ -31,7 +31,7 @@ jobs:
           set -euo pipefail
 
           # Fetch the 5 most recent releases from esphome/esphome (sorted by published date descending)
-          RELEASES=$(gh api repos/esphome/esphome/releases --paginate --jq 'sort_by(.published_at) | reverse | .[0:5] | .[].tag_name')
+          RELEASES=$(gh api repos/esphome/esphome/releases --jq 'sort_by(.published_at) | reverse | .[0:5] | .[].tag_name')
 
           for TAG in $RELEASES; do
             echo "Checking release $TAG..."
