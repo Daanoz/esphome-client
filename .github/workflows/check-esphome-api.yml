@@ -8,6 +8,10 @@ on:
     branches:
       - build/add_action_to_auto_update_esphome
 
+env:
+  CARGO_TERM_COLOR: always
+  PROTOC_VERSION: '3.25.3'
+
 permissions:
   contents: write
   pull-requests: write
@@ -49,11 +53,13 @@ jobs:
             fi
 
             VERSION="${MAJOR}.${MINOR}"
+            VERSION_DIR="api_${MAJOR}_${MINOR}"
+            VERSION_FEATURE="api-${MAJOR}-${MINOR}"
             echo "  Found API version: $VERSION"
 
             # Check if this version directory already exists
-            if [[ -d "src/proto/${VERSION}" ]]; then
-              echo "  Directory src/proto/${VERSION} already exists, skipping."
+            if [[ -d "src/proto/${VERSION_DIR}" ]]; then
+              echo "  Directory src/proto/${VERSION_DIR} already exists, skipping."
               continue
             fi
 
@@ -74,12 +80,14 @@ jobs:
             API_OPTIONS=$(curl -sf "$OPTIONS_URL") || { echo "  Failed to download api_options.proto"; continue; }
 
             # Create the new version directory and write proto files
-            mkdir -p "src/proto/${VERSION}"
-            echo "$API_PROTO" > "src/proto/${VERSION}/api.proto"
-            echo "$API_OPTIONS" > "src/proto/${VERSION}/api_options.proto"
+            mkdir -p "src/proto/${VERSION_DIR}"
+            echo "$API_PROTO" > "src/proto/${VERSION_DIR}/api.proto"
+            echo "$API_OPTIONS" > "src/proto/${VERSION_DIR}/api_options.proto"
 
             # Set outputs for the PR creation step
             echo "new_version=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "version_dir=${VERSION_DIR}" >> "$GITHUB_OUTPUT"
+            echo "version_feature=${VERSION_FEATURE}" >> "$GITHUB_OUTPUT" 
             echo "release_tag=${TAG}" >> "$GITHUB_OUTPUT"
             echo "found=true" >> "$GITHUB_OUTPUT"
 
@@ -87,11 +95,57 @@ jobs:
             break
           done
 
+      - name: Register new version feature
+        if: steps.check.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.check.outputs.new_version }}
+          VERSION_DIR: ${{ steps.check.outputs.version_dir }}
+          VERSION_FEATURE: ${{ steps.check.outputs.version_feature }}
+          RELEASE_TAG: ${{ steps.check.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          # Update Cargo.toml to add the new feature
+          sed -i "s|^# Esphome API versions.$|# Esphome API versions.\n\n# Use api released with ESPHome ${RELEASE_TAG}\n${VERSION_FEATURE} = []|" Cargo.toml
+
+          # Update README.md to include the new version in the list of supported versions
+          sed -i "s|^<!-- API_VERSIONS -->$|<!-- API_VERSIONS -->\n- ${VERSION} (\`${VERSION_FEATURE}\`) [(${RELEASE_TAG})](https://github.com/esphome/esphome/blob/${RELEASE_TAG}/esphome/components/api/api.proto)|" README.md
+
+
+      - name: Install Rust toolchain
+        if: steps.check.outputs.found == 'true'
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+
+      - name: install protoc
+        if: steps.check.outputs.found == 'true'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: protoc@${{ env.PROTOC_VERSION }}
+
+      - name: Run proto builder to generate Rust code for the new version
+        if: steps.check.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.check.outputs.new_version }}
+          VERSION_DIR: ${{ steps.check.outputs.version_dir }}
+          VERSION_FEATURE: ${{ steps.check.outputs.version_feature }}
+          RELEASE_TAG: ${{ steps.check.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          # Cargo run in esphome-client-proto-builder to generate Rust code for the new proto files
+          cargo run --manifest-path esphome-client-proto-builder/Cargo.toml
+
       - name: Create Pull Request
         if: steps.check.outputs.found == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.check.outputs.new_version }}
+          VERSION_DIR: ${{ steps.check.outputs.version_dir }}
+          VERSION_FEATURE: ${{ steps.check.outputs.version_feature }}
           RELEASE_TAG: ${{ steps.check.outputs.release_tag }}
         run: |
           set -euo pipefail
@@ -102,7 +156,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git checkout -b "$BRANCH"
-          git add "src/proto/${VERSION}/"
+          git add "src/proto/${VERSION_DIR}/" "src/proto/api.rs" Cargo.toml README.md
           git commit -m "feat: add ESPHome API proto version ${VERSION}"
           git push origin "$BRANCH"
 
@@ -110,10 +164,10 @@ jobs:
             --title "feat: add ESPHome API proto version ${VERSION}" \
             --body "New ESPHome API proto version **${VERSION}** detected in release [\`${RELEASE_TAG}\`](https://github.com/esphome/esphome/releases/tag/${RELEASE_TAG}).
 
-          This PR adds the proto files for API version ${VERSION}:
-          - \`src/proto/${VERSION}/api.proto\`
-          - \`src/proto/${VERSION}/api_options.proto\`
-
-          > **Note:** The \`build.rs\` versions list, \`Cargo.toml\` features, and \`proto_loader.rs\` macro invocation may need to be updated manually to integrate this new version." \
+          This PR adds support for API version ${VERSION}:
+          - Proto files in \`src/proto/${VERSION_DIR}/\`
+          - Generated Rust code via proto builder
+          - Feature flag \`${VERSION_FEATURE}\` in \`Cargo.toml\`
+          - Updated version list in \`README.md\`" \
             --base main \
             --head "$BRANCH"

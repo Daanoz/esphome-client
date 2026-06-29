@@ -11,8 +11,4 @@
     reason = "Generated prost code"
 )]
 #![allow(missing_docs, reason = "Generated prost code")]
-#[macro_use]
-mod proto_loader;
-include_proto!(
-    "api-1-14", "api-1-13", "api-1-12", "api-1-10", "api-1-9", "api-1-8"
-);
+include!("proto/api.rs");
