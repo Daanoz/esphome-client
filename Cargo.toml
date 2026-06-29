@@ -24,6 +24,9 @@ discovery = ["dep:mdns-sd", "tokio/rt", "tokio/sync"]
 
 # Esphome API versions.
 
+# Use api released with ESPHome 2026.6.3
+api-1-14 = []
+
 # Use api released with ESPHome 2025.11.0
 api-1-13 = []
 # Use api released with ESPHome 2025.8.0
