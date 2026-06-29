@@ -107,7 +107,7 @@ jobs:
           set -euo pipefail
 
           # Update Cargo.toml to add the new feature
-          sed -i "s|^# Esphome API versions.$|# Esphome API versions.\n\n# Use api released with ESPHome ${RELEASE_TAG}\n${VERSION_FEATURE} = []|" Cargo.toml
+          sed -i "s|^# Esphome API versions.\n$|# Esphome API versions.\n\n# Use api released with ESPHome ${RELEASE_TAG}\n${VERSION_FEATURE} = []|" Cargo.toml
 
           # Update README.md to include the new version in the list of supported versions
           sed -i "s|^<!-- API_VERSIONS -->$|<!-- API_VERSIONS -->\n- ${VERSION} (\`${VERSION_FEATURE}\`) [(${RELEASE_TAG})](https://github.com/esphome/esphome/blob/${RELEASE_TAG}/esphome/components/api/api.proto)|" README.md
