@@ -15,6 +15,15 @@ use stream_reader::StreamReader;
 use stream_writer::StreamWriter;
 use tokio::time::timeout;
 
+#[cfg(not(any(
+    feature = "api-1-14",
+    feature = "api-1-13",
+    feature = "api-1-12",
+    feature = "api-1-10",
+    feature = "api-1-9",
+    feature = "api-1-8"
+)))]
+use crate::proto::DisconnectReason;
 use crate::{
     API_VERSION,
     error::{ClientError, ProtocolError},
@@ -85,7 +94,43 @@ impl EspHomeClient {
     ///
     /// Will return an error if the write operation fails, for example due to a disconnected stream
     pub async fn close(mut self) -> Result<(), ClientError> {
-        self.try_write(DisconnectRequest {}).await?;
+        let request = DisconnectRequest {
+            #[cfg(not(any(
+                feature = "api-1-14",
+                feature = "api-1-13",
+                feature = "api-1-12",
+                feature = "api-1-10",
+                feature = "api-1-9",
+                feature = "api-1-8"
+            )))]
+            reason: DisconnectReason::Unspecified.into(),
+        };
+        self.try_write(request).await?;
+        // Dropping self & self.streams will close the streams automatically.
+        Ok(())
+    }
+
+    /// Closes the connection with a close reason gracefully by sending a `DisconnectRequest` message.
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if the write operation fails, for example due to a disconnected stream
+    #[cfg(not(any(
+        feature = "api-1-14",
+        feature = "api-1-13",
+        feature = "api-1-12",
+        feature = "api-1-10",
+        feature = "api-1-9",
+        feature = "api-1-8"
+    )))]
+    pub async fn close_with_reason(
+        mut self,
+        reason: Option<DisconnectReason>,
+    ) -> Result<(), ClientError> {
+        let request = DisconnectRequest {
+            reason: reason.unwrap_or(DisconnectReason::Unspecified).into(),
+        };
+        self.try_write(request).await?;
         // Dropping self & self.streams will close the streams automatically.
         Ok(())
     }
