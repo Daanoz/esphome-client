@@ -49,6 +49,7 @@ you don't pin down the used version and this crate is updated. It's recommended 
 
 Currently supported (the newest version is the default):
 <!-- API_VERSIONS -->
+- 1.16 (`api-1-16`) [(2026.9.0b1)](https://github.com/esphome/esphome/blob/2026.9.0b1/esphome/components/api/api.proto)
 - 1.14 (`api-1-14`) [(2026.1.0)](https://github.com/esphome/esphome/blob/2026.1.0/esphome/components/api/api.proto)
 - 1.13 (`api-1-13`) [(2025.11.0)](https://github.com/esphome/esphome/blob/2025.11.0/esphome/components/api/api.proto)
 - 1.12 (`api-1-12`) [(2025.8.0)](https://github.com/esphome/esphome/blob/2025.8.0/esphome/components/api/api.proto)
