@@ -246,7 +246,7 @@ fn read_frame_from_buffer(buffer: &mut Vec<u8>) -> Result<Option<Vec<u8>>, Clien
         }
     }
     let frame_len = usize::from(u16::from_be_bytes([buffer[1], buffer[2]]));
-    if buffer.len() < frame_len {
+    if buffer.len() < frame_len + 3 {
         tracing::debug!(
             "Waiting for more data, expected {} bytes, got {}",
             frame_len,
@@ -263,6 +263,22 @@ mod tests {
     use super::*;
 
     use std::io;
+
+    #[test]
+    fn noise_fragment_at_payload_length_is_incomplete() {
+        let frame = [1, 0, 5, 10, 20, 30, 40, 50];
+        for length in 0..frame.len() {
+            let mut buffer = frame[..length].to_vec();
+            assert!(read_frame_from_buffer(&mut buffer).unwrap().is_none());
+            assert_eq!(buffer, frame[..length]);
+        }
+        let mut buffer = frame.to_vec();
+        assert_eq!(
+            read_frame_from_buffer(&mut buffer).unwrap(),
+            Some(vec![10, 20, 30, 40, 50])
+        );
+        assert!(buffer.is_empty());
+    }
 
     fn create_key(seed: u8) -> String {
         use base64::{Engine as _, engine::general_purpose};

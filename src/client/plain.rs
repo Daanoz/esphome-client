@@ -54,6 +54,12 @@ fn create_frame(payload: &[u8]) -> Result<Vec<u8>, ClientError> {
     }
     let type_id = u16::from_be_bytes([payload[0], payload[1]]);
     let frame_len = u16::from_be_bytes([payload[2], payload[3]]);
+    if usize::from(frame_len) != payload.len() - 4 {
+        return Err(StreamError::InvalidFrame {
+            reason: "Payload length does not match header".to_owned(),
+        }
+        .into());
+    }
     Ok([
         vec![PLAIN_PREAMBLE],
         convert_to_leb128(frame_len),
@@ -81,11 +87,11 @@ fn read_frame_from_buffer(buffer: &mut Vec<u8>) -> Result<Option<Vec<u8>>, Clien
             .into());
         }
     }
-    let (frame_len, next_index) = match convert_from_leb128(buffer, 1) {
+    let (frame_len, next_index) = match convert_from_leb128(buffer, 1)? {
         Some((len, index)) => (usize::from(len), index),
         None => return Ok(None),
     };
-    let Some((type_id, next_index)) = convert_from_leb128(buffer, next_index) else {
+    let Some((type_id, next_index)) = convert_from_leb128(buffer, next_index)? else {
         return Ok(None);
     };
     if buffer.len() < next_index + frame_len {
@@ -135,27 +141,39 @@ fn convert_to_leb128(mut value: u16) -> Vec<u8> {
     result
 }
 
-fn convert_from_leb128(payload: &[u8], start_pos: usize) -> Option<(u16, usize)> {
+fn convert_from_leb128(
+    payload: &[u8],
+    start_pos: usize,
+) -> Result<Option<(u16, usize)>, ClientError> {
     let mut result: u16 = 0;
     let mut shift = 0;
 
     for (index, byte) in payload.iter().enumerate().skip(start_pos) {
+        if shift == 14 && byte & 0xFC != 0 {
+            return Err(StreamError::InvalidFrame {
+                reason: "Varint exceeds u16".to_owned(),
+            }
+            .into());
+        }
         let value = u16::from(byte & 0x7F);
         result |= value << shift;
 
         if byte & 0x80 == 0 {
-            return Some((result, index + 1));
+            return Ok(Some((result, index + 1)));
         }
 
         shift += 7;
 
         if shift >= 16 {
             // Prevent overflow for u16
-            return None;
+            return Err(StreamError::InvalidFrame {
+                reason: "Varint is too long".to_owned(),
+            }
+            .into());
         }
     }
 
-    None // Incomplete encoding
+    Ok(None) // Incomplete encoding
 }
 
 #[cfg(test)]
@@ -163,11 +181,30 @@ mod test {
     use super::*;
 
     #[test]
+    fn plain_rejects_overflowing_or_overlong_varint() {
+        for bytes in [vec![0, 0x80, 0x80, 0x04, 0], vec![0, 0x80, 0x80, 0x80, 0]] {
+            assert!(
+                read_frame_from_buffer(&mut bytes.clone()).is_err(),
+                "{bytes:?}"
+            );
+        }
+        let mut incomplete = vec![0, 0x80, 0x80];
+        assert!(read_frame_from_buffer(&mut incomplete).unwrap().is_none());
+    }
+
+    #[test]
+    fn plain_rejects_inconsistent_outgoing_length() {
+        assert!(create_frame(&[0, 7, 0, 2, 42]).is_err());
+    }
+
+    #[test]
     fn test_convert_to_leb128_and_from_leb128() {
         let values = [0u16, 1, 127, 128, 255, 300, 16383, 16384, u16::MAX];
         for &val in &values {
             let leb = convert_to_leb128(val);
-            let (decoded, next_index) = convert_from_leb128(&leb, 0).expect("Should decode");
+            let (decoded, next_index) = convert_from_leb128(&leb, 0)
+                .expect("Valid varint")
+                .expect("Should decode");
             assert_eq!(decoded, val);
             assert_eq!(next_index, leb.len());
         }
