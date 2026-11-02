@@ -89,6 +89,39 @@ async fn unknown_type_is_typed_and_next_frame_survives() {
 }
 
 #[tokio::test]
+async fn malformed_known_message_terminates_session() {
+    timeout(Duration::from_secs(2), async {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let mut client = EspHomeClient::builder()
+            .address(&listener.local_addr().unwrap().to_string())
+            .without_connection_setup()
+            .connect()
+            .await
+            .unwrap();
+        let (mut peer, _) = listener.accept().await.unwrap();
+        let writer = client.write_stream();
+        peer.write_all(&[0, 1, 2, 255, 0, 0, 8]).await.unwrap();
+        assert!(matches!(
+            client.try_read().await,
+            Err(esphome_client::error::ClientError::Protocol(
+                esphome_client::error::ProtocolError::MessageDecode(
+                    MessageDecodeError::MalformedMessage { type_id: 2, .. }
+                )
+            ))
+        ));
+        assert!(client.try_read().await.is_err());
+        assert!(
+            writer
+                .try_write(esphome_client::types::PingResponse {})
+                .await
+                .is_err()
+        );
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
 async fn coalesced_frames_are_preserved() {
     timeout(Duration::from_secs(2), async {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

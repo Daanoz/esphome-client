@@ -215,7 +215,7 @@ mod tests {
     #[tokio::test]
     async fn cancelled_write_terminates_session() {
         for first_bytes in [0, 2] {
-            let (mut reader, _writer, mut peer) = session().await;
+            let (mut reader, writer, mut peer) = session().await;
             let state = Arc::clone(reader.session());
             let mut sink = ShortSink {
                 limit: 2,
@@ -232,6 +232,7 @@ mod tests {
             write_result.unwrap_err();
             assert!(state.is_closed());
             read_result.unwrap().unwrap_err();
+            writer.write_message(vec![1]).await.unwrap_err();
             assert_eq!(
                 timeout(Duration::from_secs(1), peer.read_u8())
                     .await
@@ -256,5 +257,24 @@ mod tests {
                 .is_err()
         );
         assert!(reader.session().is_closed());
+    }
+
+    #[tokio::test]
+    async fn cancellation_waiting_for_writer_lock_preserves_session() {
+        let (reader, writer, mut peer) = session().await;
+        let lock = writer.state.lock().await;
+        timeout(Duration::from_millis(20), writer.write_message(vec![1]))
+            .await
+            .unwrap_err();
+        assert!(!reader.session().is_closed());
+        drop(lock);
+        writer.write_message(vec![42]).await.unwrap();
+        assert_eq!(
+            timeout(Duration::from_secs(1), peer.read_u8())
+                .await
+                .unwrap()
+                .unwrap(),
+            42
+        );
     }
 }
