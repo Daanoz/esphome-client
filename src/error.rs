@@ -81,6 +81,9 @@ pub enum ConnectionError {
 /// Stream-related errors.
 #[derive(Debug, thiserror::Error)]
 pub enum StreamError {
+    /// The transport has ended and must not be reused.
+    #[error("Session is closed")]
+    Closed,
     /// Invalid frame format received.
     #[error("Invalid frame format: {reason}")]
     InvalidFrame {

@@ -1,5 +1,6 @@
+use super::session::Session;
 use crate::error::{ClientError, StreamError};
-use std::{fmt::Debug, io, mem};
+use std::{fmt::Debug, io, mem, sync::Arc};
 use tokio::{io::Interest, net::tcp::OwnedReadHalf};
 
 const MAX_BUFFERED_BYTES: usize = 65_544;
@@ -21,7 +22,7 @@ pub(crate) trait StreamDecoder: Send + Sync + Debug {
 mod tests {
     use super::*;
     use tokio::{
-        io::AsyncWriteExt,
+        io::AsyncWriteExt as _,
         net::{TcpListener, TcpStream},
         time::{Duration, timeout},
     };
@@ -53,7 +54,7 @@ mod tests {
             .await
             .unwrap();
         let (peer, _) = listener.accept().await.unwrap();
-        (StreamReader::new(client.into_split().0), peer)
+        (super::super::session::split(client).unwrap().0, peer)
     }
 
     #[tokio::test]
@@ -91,26 +92,36 @@ pub(crate) struct StreamReader {
     decoder: Box<dyn StreamDecoder>,
     read_stream: OwnedReadHalf,
     buffer: Vec<u8>,
+    session: Arc<Session>,
 }
 
 impl StreamReader {
-    pub(crate) fn new(read_stream: OwnedReadHalf) -> Self {
+    pub(crate) fn new(read_stream: OwnedReadHalf, session: Arc<Session>) -> Self {
         Self {
             read_stream,
             decoder: Box::new(NoopDecoder),
             buffer: Vec::with_capacity(65535),
+            session,
         }
     }
 
-    pub(crate) fn with_decoder(self, decoder: Box<dyn StreamDecoder>) -> Self {
-        Self {
-            decoder,
-            read_stream: self.read_stream,
-            buffer: self.buffer,
-        }
+    pub(crate) fn with_decoder(mut self, decoder: Box<dyn StreamDecoder>) -> Self {
+        self.decoder = decoder;
+        self
     }
-
+    #[cfg(test)]
+    pub(crate) const fn session(&self) -> &Arc<Session> {
+        &self.session
+    }
     pub(crate) async fn read_next_message(&mut self) -> Result<Vec<u8>, ClientError> {
+        self.session.ensure_open()?;
+        let result = self.read_inner().await;
+        if result.is_err() {
+            self.session.close();
+        }
+        result
+    }
+    async fn read_inner(&mut self) -> Result<Vec<u8>, ClientError> {
         if let Some(decoded) = self.decoder.decode(&mut self.buffer)? {
             tracing::trace!("Read {} bytes: {decoded:?}", decoded.len());
             return Ok(decoded);
@@ -123,6 +134,7 @@ impl StreamReader {
                 }
                 .into());
             }
+            self.session.ensure_open()?;
             let ready = self
                 .read_stream
                 .ready(Interest::READABLE)
@@ -153,5 +165,11 @@ impl StreamReader {
                 }
             }
         }
+    }
+}
+
+impl Drop for StreamReader {
+    fn drop(&mut self) {
+        self.session.close();
     }
 }

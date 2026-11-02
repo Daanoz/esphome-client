@@ -1,27 +1,24 @@
 use tokio::net::TcpStream;
 
 use super::{
-    StreamPair,
-    noise::NOISE_PREAMBLE,
-    stream_reader::{StreamDecoder, StreamReader},
-    stream_writer::{StreamEncoder, StreamWriter},
+    StreamPair, noise::NOISE_PREAMBLE, stream_reader::StreamDecoder, stream_writer::StreamEncoder,
 };
 use crate::error::{ClientError, ConnectionError, ProtocolError, StreamError};
 
 pub(super) const PLAIN_PREAMBLE: u8 = 0x00;
 
 pub(crate) async fn connect(addr: &str) -> Result<StreamPair, ClientError> {
-    let (read_stream, write_stream) = TcpStream::connect(addr)
+    let stream = TcpStream::connect(addr)
         .await
         .map_err(|e| ConnectionError::TcpConnect {
             address: addr.to_owned(),
             source: e,
-        })?
-        .into_split();
+        })?;
+    let (reader, writer) = super::session::split(stream)?;
     tracing::debug!("Tcp connection established to {addr}");
     Ok((
-        StreamReader::new(read_stream).with_decoder(Box::new(PlainDecoder)),
-        StreamWriter::new(write_stream).with_encoder(Box::new(PlainEncoder)),
+        reader.with_decoder(Box::new(PlainDecoder)),
+        writer.with_encoder(Box::new(PlainEncoder)),
     ))
 }
 
@@ -194,7 +191,7 @@ mod test {
 
     #[test]
     fn plain_rejects_inconsistent_outgoing_length() {
-        assert!(create_frame(&[0, 7, 0, 2, 42]).is_err());
+        create_frame(&[0, 7, 0, 2, 42]).unwrap_err();
     }
 
     #[test]
@@ -229,7 +226,7 @@ mod test {
         assert_eq!(&decoded[0..2], &type_id.to_be_bytes());
         assert_eq!(&decoded[2..4], &frame_len.to_be_bytes());
         assert_eq!(&decoded[4..], &payload_data);
-        assert!(buffer.is_empty());
+        assert_eq!(buffer, []);
     }
 
     #[test]

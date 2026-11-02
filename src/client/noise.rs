@@ -7,7 +7,7 @@ use crate::error::{ClientError, ConnectionError, NoiseError, ProtocolError, Stre
 
 use super::{plain::PLAIN_PREAMBLE, stream_reader::StreamDecoder, stream_writer::StreamEncoder};
 
-use super::{StreamPair, stream_reader::StreamReader, stream_writer::StreamWriter};
+use super::StreamPair;
 
 const ZERO_BYTE: u8 = 0x00;
 const NOISE_PROLOGUE: &[u8; 14] = b"NoiseAPIInit\x00\x00";
@@ -18,19 +18,14 @@ pub(super) const NOISE_PREAMBLE: u8 = 0x01;
 /// Returns a `StreamPair` with the encrypted streams.
 /// For more information on the Noise protocol, see: <http://www.noiseprotocol.org/noise.html#pre-shared-symmetric-keys>
 pub(crate) async fn connect(addr: &str, key: &str) -> Result<StreamPair, ClientError> {
-    let (read, write) = TcpStream::connect(addr)
+    let stream = TcpStream::connect(addr)
         .await
         .map_err(|e| ConnectionError::TcpConnect {
             address: addr.to_owned(),
             source: e,
-        })?
-        .into_split();
-    tracing::debug!("Tcp connection established to {addr}");
-    let pre_handshake_decoder: Box<dyn StreamDecoder> = Box::new(PreHandshakeDecoder);
-    let (mut reader, writer) = (
-        StreamReader::new(read).with_decoder(pre_handshake_decoder),
-        StreamWriter::new(write),
-    );
+        })?;
+    let (reader, writer) = super::session::split(stream)?;
+    let mut reader = reader.with_decoder(Box::new(PreHandshakeDecoder));
 
     let mut noise_client = create_noise_client(key)?;
 
@@ -277,7 +272,7 @@ mod tests {
             read_frame_from_buffer(&mut buffer).unwrap(),
             Some(vec![10, 20, 30, 40, 50])
         );
-        assert!(buffer.is_empty());
+        assert_eq!(buffer, []);
     }
 
     fn create_key(seed: u8) -> String {
@@ -323,7 +318,7 @@ mod tests {
         let mut buffer = frame;
         let decoded = read_frame_from_buffer(&mut buffer).unwrap();
         assert_eq!(decoded, Some(payload));
-        assert!(buffer.is_empty());
+        assert_eq!(buffer, []);
     }
 
     #[test]

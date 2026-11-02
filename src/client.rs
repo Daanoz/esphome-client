@@ -7,6 +7,7 @@
 mod noise;
 mod plain;
 
+mod session;
 mod stream_reader;
 mod stream_writer;
 use std::{fmt::Debug, time::Duration};
@@ -106,7 +107,7 @@ impl EspHomeClient {
             reason: DisconnectReason::Unspecified.into(),
         };
         self.try_write(request).await?;
-        // Dropping self & self.streams will close the streams automatically.
+        self.streams.1.close();
         Ok(())
     }
 
@@ -131,7 +132,7 @@ impl EspHomeClient {
             reason: reason.unwrap_or(DisconnectReason::Unspecified).into(),
         };
         self.try_write(request).await?;
-        // Dropping self & self.streams will close the streams automatically.
+        self.streams.1.close();
         Ok(())
     }
 
