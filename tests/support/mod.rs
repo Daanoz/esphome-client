@@ -1,3 +1,7 @@
+#![allow(
+    dead_code,
+    reason = "Shared fixture methods are used by different integration binaries"
+)]
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -11,7 +15,10 @@ pub struct NoisePeer {
     cipher: snow::TransportState,
 }
 impl NoisePeer {
-    pub async fn accept(mut socket: TcpStream) -> Self {
+    pub async fn accept(socket: TcpStream) -> Self {
+        Self::accept_with_delay(socket, std::time::Duration::ZERO).await
+    }
+    pub async fn accept_with_delay(mut socket: TcpStream, delay: std::time::Duration) -> Self {
         let key: [u8; 32] = STANDARD.decode(KEY).unwrap().try_into().unwrap();
         let mut handshake =
             snow::Builder::new("Noise_NNpsk0_25519_ChaChaPoly_SHA256".parse().unwrap())
@@ -22,6 +29,7 @@ impl NoisePeer {
                 .build_responder()
                 .unwrap();
         assert_eq!(read_frame(&mut socket).await, Vec::<u8>::new());
+        tokio::time::sleep(delay).await;
         write_frame(&mut socket, b"\x01test-peer\0").await;
         let request = read_frame(&mut socket).await;
         assert_eq!(request[0], 0);
@@ -42,9 +50,19 @@ impl NoisePeer {
         plain
     }
     pub async fn write(&mut self, message: &[u8]) {
+        self.try_write(message).await.unwrap();
+    }
+    pub async fn try_write(&mut self, message: &[u8]) -> std::io::Result<()> {
         let mut encrypted = vec![0; 65535];
-        let size = self.cipher.write_message(message, &mut encrypted).unwrap();
-        write_frame(&mut self.socket, &encrypted[..size]).await;
+        let size = self
+            .cipher
+            .write_message(message, &mut encrypted)
+            .map_err(std::io::Error::other)?;
+        self.socket.write_all(&[1]).await?;
+        self.socket
+            .write_all(&u16::try_from(size).unwrap().to_be_bytes())
+            .await?;
+        self.socket.write_all(&encrypted[..size]).await
     }
 }
 async fn read_frame(socket: &mut TcpStream) -> Vec<u8> {

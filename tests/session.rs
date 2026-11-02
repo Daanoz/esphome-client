@@ -1,4 +1,5 @@
 use esphome_client::{EspHomeClient, error::ClientError};
+mod support;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
@@ -178,6 +179,56 @@ async fn setup_deadline_is_shared_across_phases() {
             .await;
         assert!(matches!(result, Err(ClientError::Timeout { .. })));
         server.await.unwrap();
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn noise_setup_timeout_includes_hello() {
+    timeout(Duration::from_secs(2), async {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let peer = tokio::spawn(async move {
+            let (socket, _) = listener.accept().await.unwrap();
+            let mut peer = support::NoisePeer::accept(socket).await;
+            assert_eq!(&peer.read().await[..2], &[0, 1]);
+            assert!(peer.socket.read_u8().await.is_err());
+        });
+        let result = EspHomeClient::builder()
+            .address(&address.to_string())
+            .key(support::KEY)
+            .timeout(Duration::from_millis(100))
+            .connect()
+            .await;
+        assert!(matches!(result, Err(ClientError::Timeout { .. })));
+        peer.await.unwrap();
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn noise_and_hello_share_one_deadline() {
+    timeout(Duration::from_secs(2), async {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let peer = tokio::spawn(async move {
+            let (socket, _) = listener.accept().await.unwrap();
+            let mut peer =
+                support::NoisePeer::accept_with_delay(socket, Duration::from_millis(60)).await;
+            assert_eq!(&peer.read().await[..2], &[0, 1]);
+            sleep(Duration::from_millis(60)).await;
+            let _response = peer.try_write(&[0, 2, 0, 4, 8, 1, 16, 15]).await;
+        });
+        let result = EspHomeClient::builder()
+            .address(&address.to_string())
+            .key(support::KEY)
+            .timeout(Duration::from_millis(100))
+            .connect()
+            .await;
+        assert!(matches!(result, Err(ClientError::Timeout { .. })));
+        peer.await.unwrap();
     })
     .await
     .unwrap();

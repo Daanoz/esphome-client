@@ -187,4 +187,3 @@ applications own reconnect, device approval and the interpretation of BLE data.
 Only one API client owns the BLE advertisement subscription in ESPHome2026.8.2;
 do not subscribe to a proxy currently used by Home Assistant without coordinating
 the handover.
-
