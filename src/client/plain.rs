@@ -33,6 +33,9 @@ impl StreamDecoder for PlainDecoder {
 #[derive(Debug)]
 struct PlainEncoder;
 impl StreamEncoder for PlainEncoder {
+    fn validate(&self, payload: &[u8]) -> Result<(), ClientError> {
+        super::stream_writer::validate_wire_payload(payload, usize::from(u16::MAX))
+    }
     fn encode(&self, payload: Vec<u8>) -> Result<Vec<u8>, ClientError> {
         create_frame(&payload)
     }

@@ -27,7 +27,7 @@ use tokio::time::timeout;
 use crate::proto::DisconnectReason;
 use crate::{
     API_VERSION,
-    error::{ClientError, ProtocolError},
+    error::{ClientError, MessageDecodeError, ProtocolError},
     proto::{DisconnectRequest, EspHomeMessage, HelloRequest, PingResponse},
 };
 
@@ -58,7 +58,7 @@ impl EspHomeClient {
     {
         tracing::debug!("Send: {message:?}");
         let message: EspHomeMessage = message.into();
-        let payload: Vec<u8> = message.into();
+        let payload = message.encode_wire()?;
         self.streams.1.write_message(payload).await
     }
 
@@ -72,13 +72,15 @@ impl EspHomeClient {
     pub async fn try_read(&mut self) -> Result<EspHomeMessage, ClientError> {
         loop {
             let payload = self.streams.0.read_next_message().await?;
-            let message: EspHomeMessage =
-                payload
-                    .clone()
-                    .try_into()
-                    .map_err(|e| ProtocolError::ValidationFailed {
-                        reason: format!("Failed to decode EspHomeMessage: {e}"),
-                    })?;
+            let message = match EspHomeMessage::decode_wire(&payload) {
+                Ok(message) => message,
+                Err(error) => {
+                    if !matches!(error, MessageDecodeError::UnknownMessageType { .. }) {
+                        self.streams.1.close();
+                    }
+                    return Err(ProtocolError::MessageDecode(error).into());
+                }
+            };
             tracing::debug!("Receive: {message:?}");
             match message {
                 EspHomeMessage::PingRequest(_) if self.handle_ping => {
@@ -162,7 +164,7 @@ impl EspHomeClientWriteStream {
     {
         tracing::debug!("Send: {message:?}");
         let message: EspHomeMessage = message.into();
-        let payload: Vec<u8> = message.into();
+        let payload = message.encode_wire()?;
         self.writer.write_message(payload).await
     }
 }

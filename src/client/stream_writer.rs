@@ -20,6 +20,31 @@ pub(crate) trait StreamEncoder: Send + Sync + Debug {
     }
 }
 
+pub(super) fn validate_wire_payload(payload: &[u8], max_size: usize) -> Result<(), ClientError> {
+    if payload.len() < 4 {
+        return Err(StreamError::InvalidFrame {
+            reason: "Message header is incomplete".to_owned(),
+        }
+        .into());
+    }
+    let actual = payload.len() - 4;
+    if actual > max_size {
+        return Err(StreamError::FrameTooLarge {
+            size: actual,
+            max_size,
+        }
+        .into());
+    }
+    let declared = usize::from(u16::from_be_bytes([payload[2], payload[3]]));
+    if declared != actual {
+        return Err(StreamError::InvalidFrame {
+            reason: "Payload length does not match header".to_owned(),
+        }
+        .into());
+    }
+    Ok(())
+}
+
 #[derive(Debug)]
 struct WriteState {
     encoder: Box<dyn StreamEncoder>,

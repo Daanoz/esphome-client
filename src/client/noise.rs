@@ -105,6 +105,10 @@ impl StreamDecoder for NoiseCoder {
     }
 }
 impl StreamEncoder for NoiseCoder {
+    fn validate(&self, payload: &[u8]) -> Result<(), ClientError> {
+        // 65535 ciphertext bytes minus 16-byte tag and 4-byte message header.
+        super::stream_writer::validate_wire_payload(payload, 65_515)
+    }
     fn encode(&self, payload: Vec<u8>) -> Result<Vec<u8>, ClientError> {
         let payload = self.encrypt(&payload)?;
         let payload = create_noise_frame(payload);

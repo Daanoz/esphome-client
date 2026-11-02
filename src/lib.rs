@@ -153,6 +153,7 @@ pub use client::{EspHomeClient, EspHomeClientBuilder, EspHomeClientWriteStream};
 pub mod types {
     pub use super::proto::*;
 }
+pub use error::MessageDecodeError;
 pub use proto::API_VERSION;
 
 /// This is a helper function to convert GATT UUIDs from the format used in ESPHome: [u64, u64] to a byte array.

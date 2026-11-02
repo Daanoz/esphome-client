@@ -17,6 +17,10 @@ rust-version = "1.85"
 
 [lib]
 
+[[example]]
+name = "device_discovery"
+required-features = ["discovery"]
+
 [features]
 default = ["discovery"]
 # Enable mDNS service discovery
