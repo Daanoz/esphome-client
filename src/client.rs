@@ -33,11 +33,25 @@ use crate::{
 
 type StreamPair = (StreamReader, StreamWriter);
 
+/// Information advertised by the peer during automatic connection setup.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ConnectionInfo {
+    /// Major API version advertised by the device.
+    pub api_version_major: u32,
+    /// Minor API version advertised by the device.
+    pub api_version_minor: u32,
+    /// Peer software identification string.
+    pub server_info: String,
+    /// Peer node name.
+    pub name: String,
+}
+
 /// Client for sending and receiving messages to an ESPHome API server.
 #[derive(Debug)]
 pub struct EspHomeClient {
     streams: StreamPair,
     handle_ping: bool,
+    connection_info: Option<ConnectionInfo>,
 }
 
 impl EspHomeClient {
@@ -45,6 +59,12 @@ impl EspHomeClient {
     #[must_use]
     pub fn builder() -> EspHomeClientBuilder {
         EspHomeClientBuilder::new()
+    }
+
+    /// Returns peer metadata retained by automatic setup, or None for manual setup.
+    #[must_use]
+    pub const fn connection_info(&self) -> Option<&ConnectionInfo> {
+        self.connection_info.as_ref()
     }
 
     /// Sends a message to the ESPHome device.
@@ -223,7 +243,7 @@ impl EspHomeClientBuilder {
         self
     }
 
-    /// Sets the timeout duration during the tcp connection.
+    /// Sets one timeout for TCP, Noise, Hello, and optional authentication setup.
     #[must_use]
     pub const fn timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
@@ -273,25 +293,25 @@ impl EspHomeClientBuilder {
             message: "Address is not set".into(),
         })?;
 
-        let streams = timeout(self.timeout, async {
-            match self.key {
+        timeout(self.timeout, async {
+            let streams = match self.key {
                 Some(key) => noise::connect(&addr, &key).await,
                 None => plain::connect(&addr).await,
+            }?;
+            let mut stream = EspHomeClient {
+                streams,
+                handle_ping: self.handle_ping,
+                connection_info: None,
+            };
+            if self.connection_setup {
+                Self::connection_setup(&mut stream, self.client_info, self.password).await?;
             }
+            Ok(stream)
         })
         .await
-        .map_err(|_e| ClientError::Timeout {
+        .map_err(|_error| ClientError::Timeout {
             timeout_ms: self.timeout.as_millis(),
-        })??;
-
-        let mut stream = EspHomeClient {
-            streams,
-            handle_ping: self.handle_ping,
-        };
-        if self.connection_setup {
-            Self::connection_setup(&mut stream, self.client_info, self.password).await?;
-        }
-        Ok(stream)
+        })?
     }
 
     /// Sets up the connection by sending the `HelloRequest` and `ConnectRequest` messages.
@@ -331,6 +351,12 @@ impl EspHomeClientBuilder {
                             response.api_version_minor
                         );
                     }
+                    stream.connection_info = Some(ConnectionInfo {
+                        api_version_major: response.api_version_major,
+                        api_version_minor: response.api_version_minor,
+                        server_info: response.server_info,
+                        name: response.name,
+                    });
                     break;
                 }
                 _ => {

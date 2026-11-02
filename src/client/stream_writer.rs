@@ -171,20 +171,20 @@ mod tests {
         }
     }
 
-    async fn session() -> (StreamReaderForTest, TcpStream) {
+    async fn session() -> (StreamReaderForTest, StreamWriter, TcpStream) {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let stream = TcpStream::connect(listener.local_addr().unwrap())
             .await
             .unwrap();
         let (peer, _) = listener.accept().await.unwrap();
         let pair = super::super::session::split(stream).unwrap();
-        (pair.0, peer)
+        (pair.0, pair.1, peer)
     }
     type StreamReaderForTest = super::super::stream_reader::StreamReader;
 
     #[tokio::test]
     async fn partial_write_sends_complete_frame() {
-        let (reader, _peer) = session().await;
+        let (reader, _writer, _peer) = session().await;
         let mut sink = ShortSink {
             limit: 2,
             ..ShortSink::default()
@@ -202,7 +202,7 @@ mod tests {
 
     #[tokio::test]
     async fn write_zero_returns_error_and_closes_session() {
-        let (reader, _peer) = session().await;
+        let (reader, _writer, _peer) = session().await;
         let mut sink = ShortSink::default();
         assert!(
             write_encoded(&mut sink, &NoopEncoder, vec![1], reader.session())
@@ -215,7 +215,7 @@ mod tests {
     #[tokio::test]
     async fn cancelled_write_terminates_session() {
         for first_bytes in [0, 2] {
-            let (mut reader, mut peer) = session().await;
+            let (mut reader, _writer, mut peer) = session().await;
             let state = Arc::clone(reader.session());
             let mut sink = ShortSink {
                 limit: 2,
@@ -245,7 +245,7 @@ mod tests {
 
     #[tokio::test]
     async fn failed_write_terminates_session() {
-        let (reader, _peer) = session().await;
+        let (reader, _writer, _peer) = session().await;
         let mut sink = ShortSink {
             fail: true,
             ..ShortSink::default()

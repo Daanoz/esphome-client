@@ -148,7 +148,7 @@ pub mod discovery;
 pub mod error;
 mod proto;
 
-pub use client::{EspHomeClient, EspHomeClientBuilder, EspHomeClientWriteStream};
+pub use client::{ConnectionInfo, EspHomeClient, EspHomeClientBuilder, EspHomeClientWriteStream};
 /// Re-export of types that can be used with the ESPHome API.
 pub mod types {
     pub use super::proto::*;
