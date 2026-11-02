@@ -174,39 +174,44 @@ impl prost_build::ServiceGenerator for ServiceGenerator {
                             #(Self::#variant_to_typeid,)*
                         }
                     }
+                    /// Encodes a message without panicking on a payload exceeding the wire limit.
+                    ///
+                    /// # Errors
+                    /// Returns FrameTooLarge before allocating the protobuf payload.
+                    #[allow(clippy::too_many_lines, reason = "Generated message dispatch")]
+                    pub fn encode_wire(&self) -> Result<Vec<u8>, crate::error::StreamError> {
+                        use prost::Message as _;
+                        let size = match self { #(Self::#variants(d) => d.encoded_len(),)* };
+                        let payload_len = u16::try_from(size).map_err(|_error| crate::error::StreamError::FrameTooLarge { size, max_size: usize::from(u16::MAX) })?;
+                        let payload = match self { #(Self::#variants(d) => d.encode_to_vec(),)* };
+                        Ok([self.get_message_type().to_be_bytes().to_vec(), payload_len.to_be_bytes().to_vec(), payload].concat())
+                    }
+                    /// Decodes one complete internal wire message.
+                    ///
+                    /// # Errors
+                    /// Distinguishes unknown message IDs from malformed known messages and invalid lengths.
+                    #[allow(clippy::too_many_lines, reason = "Generated message dispatch")]
+                    pub fn decode_wire(msg: &[u8]) -> Result<Self, crate::error::MessageDecodeError> {
+                        use prost::Message as _;
+                        use crate::error::MessageDecodeError;
+                        if msg.len() < 4 { return Err(MessageDecodeError::InvalidHeader); }
+                        let type_id = u16::from_be_bytes([msg[0], msg[1]]);
+                        let declared = usize::from(u16::from_be_bytes([msg[2], msg[3]]));
+                        let payload = &msg[4..];
+                        if declared != payload.len() { return Err(MessageDecodeError::InvalidLength { declared, actual:payload.len() }); }
+                        match type_id {
+                            #(#typeid_to_variant,)*
+                            _ => return Err(MessageDecodeError::UnknownMessageType { type_id }),
+                        }.map_err(|source| MessageDecodeError::MalformedMessage { type_id, source })
+                    }
                 }
                 impl From<#enum_name> for Vec<u8> {
-                    #[allow(clippy::too_many_lines, reason = "Generated code for all messages")]
-                    fn from(val: #enum_name) -> Self {
-                        use prost::Message as _;
-
-                        let type_id = val.get_message_type();
-                        let payload = match val {
-                            #(#enum_name::#variants(d) => d.encode_to_vec(),)*
-                        };
-                        let payload_len = u16::try_from(payload.len()).expect("Payload length exceeds u16::MAX");
-                        [
-                            type_id.to_be_bytes().to_vec(),
-                            payload_len.to_be_bytes().to_vec(),
-                            payload
-                        ].concat()
-                    }
+                    fn from(val: #enum_name) -> Self { val.encode_wire().expect("Payload length exceeds u16::MAX") }
                 }
                 impl TryFrom<Vec<u8>> for #enum_name {
                     type Error = String;
-                    #[allow(clippy::too_many_lines, reason = "Generated code for all messages")]
                     fn try_from(msg: Vec<u8>) -> Result<Self, Self::Error> {
-                        use prost::Message as _;
-                        if msg.len() < 4 {
-                            return Err("Message too short".to_owned());
-                        }
-                        let type_id = u16::from_be_bytes([msg[0], msg[1]]);
-                        // let size = u16::from_be_bytes([msg[2], msg[3]]);
-                        let payload = &msg[4..];
-                        match type_id {
-                            #(#typeid_to_variant,)*
-                            _ => return Err(format!("Unknown message type: {type_id}")),
-                        }.map_err(|e| format!("Failed to decode message: {e}"))
+                        Self::decode_wire(&msg).map_err(|error| error.to_string())
                     }
                 }
             }

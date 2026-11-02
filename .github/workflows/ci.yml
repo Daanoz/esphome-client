@@ -21,6 +21,7 @@ jobs:
       - docs
       - test
       - integration-test
+      - generated-code
     steps:
       - run: exit 0
 
@@ -29,9 +30,12 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [stable]
+        rust: [stable, "1.85.0"]
         features:
           - --features=default
+          - --no-default-features
+          - --no-default-features --features=api-1-15
+          - --no-default-features --features=api-1-16
           - --features=api-1-8 # Also check against oldest
     steps:
       - name: Checkout sources
@@ -54,16 +58,19 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Run cargo test
-        run: cargo test ${{ matrix.features }} --verbose
+        run: cargo test --locked ${{ matrix.features }} --verbose
 
   check:
     name: Check features
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [stable, 1.85]
+        rust: [stable, "1.85.0"]
         features:
           - --features=default
+          - --no-default-features --features=api-1-16
+          - --no-default-features --features=api-1-15
+          - --no-default-features --features=api-1-14
           - --features=api-1-13
           - --features=api-1-12
           - --features=api-1-10
@@ -90,7 +97,7 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Run cargo check
-        run: cargo check ${{ matrix.features }} --verbose
+        run: cargo check --locked ${{ matrix.features }} --verbose
 
   clippy:
     name: Clippy
@@ -185,3 +192,22 @@ jobs:
         run: |
           cargo test --test noise -- --nocapture
           cargo test --test plain -- --nocapture
+
+  generated-code:
+    name: Reproducible protocol codecs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Install pinned protoc
+        run: |
+          curl --fail --location --output "$RUNNER_TEMP/protoc.zip" https://github.com/protocolbuffers/protobuf/releases/download/v32.1/protoc-32.1-linux-x86_64.zip
+          unzip -q "$RUNNER_TEMP/protoc.zip" -d "$RUNNER_TEMP/protoc"
+          echo "$RUNNER_TEMP/protoc/bin" >> "$GITHUB_PATH"
+      - name: Regenerate from checked-in protobuf definitions
+        run: |
+          cargo run --locked --manifest-path esphome-client-proto-builder/Cargo.toml
+          cargo fmt --all
+          git diff --exit-code -- src/proto

@@ -81,6 +81,9 @@ pub enum ConnectionError {
 /// Stream-related errors.
 #[derive(Debug, thiserror::Error)]
 pub enum StreamError {
+    /// The transport has ended and must not be reused.
+    #[error("Session is closed")]
+    Closed,
     /// Invalid frame format received.
     #[error("Invalid frame format: {reason}")]
     InvalidFrame {
@@ -117,6 +120,9 @@ pub enum StreamError {
 /// Protocol-related errors.
 #[derive(Debug, thiserror::Error)]
 pub enum ProtocolError {
+    /// Typed decoding failure for an internal wire message.
+    #[error(transparent)]
+    MessageDecode(#[from] MessageDecodeError),
     /// Failed to parse protobuf message.
     #[error("Protobuf parsing failed: {source}")]
     ProtobufParse {
@@ -146,6 +152,37 @@ pub enum ProtocolError {
     ValidationFailed {
         /// Reason for validation failure.
         reason: String,
+    },
+}
+
+/// A complete frame contained an unknown or malformed protobuf message.
+#[derive(Debug, thiserror::Error)]
+pub enum MessageDecodeError {
+    /// The message ID is not present in the selected protocol schema.
+    #[error("Unknown message type: {type_id}")]
+    UnknownMessageType {
+        /// Wire message ID.
+        type_id: u16,
+    },
+    /// Declared protobuf length differs from the actual payload.
+    #[error("Invalid message length: declared {declared}, actual {actual}")]
+    InvalidLength {
+        /// Length in the internal header.
+        declared: usize,
+        /// Number of payload bytes received.
+        actual: usize,
+    },
+    /// The four-byte internal header is incomplete.
+    #[error("Message header is incomplete")]
+    InvalidHeader,
+    /// The ID is known, but its protobuf payload cannot be decoded.
+    #[error("Malformed message {type_id}: {source}")]
+    MalformedMessage {
+        /// Wire message ID.
+        type_id: u16,
+        /// Underlying protobuf error.
+        #[source]
+        source: prost::DecodeError,
     },
 }
 

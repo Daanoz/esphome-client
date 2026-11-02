@@ -17,6 +17,10 @@ rust-version = "1.85"
 
 [lib]
 
+[[example]]
+name = "device_discovery"
+required-features = ["discovery"]
+
 [features]
 default = ["discovery"]
 # Enable mDNS service discovery
@@ -48,7 +52,7 @@ mdns-sd = { version = ">0.15.0", optional = true }
 prost = "0.14.4"
 snow = "0.10.0"
 thiserror = "2.0"
-tokio = { version = "1", features = ["io-util", "net", "time"] }
+tokio = { version = "1", features = ["io-util", "net", "time", "sync"] }
 tracing = "0.1.41"
 
 [dev-dependencies]

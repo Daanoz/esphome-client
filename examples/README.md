@@ -170,3 +170,20 @@ RUST_LOG=debug cargo run --example sensor_monitoring -- 192.168.1.100:6053
 # Show only error logs
 RUST_LOG=error cargo run --example sensor_monitoring -- 192.168.1.100:6053
 ```
+# Raw Bluetooth proxy advertisements
+
+With API1.15/1.16 definitions, first inspect the peer API version from
+`connection_info()` and request `DeviceCapabilitiesRequest`. Check the Bluetooth
+proxy feature flags before subscribing. `SubscribeBluetoothLeAdvertisementsRequest`
+with `flags: 1` selects raw advertisements; handle
+`EspHomeMessage::BluetoothLeRawAdvertisementsResponse` in the read loop. Its batch
+contains the device address, address type, RSSI and unchanged advertisement bytes.
+Unknown message errors are distinguishable and can be skipped; malformed known
+messages and transport errors require a new connection.
+
+The subscription flag is defined in ESPHome's `bluetooth_proxy.h`; it is separate
+from the capability bit for raw advertisements. This is a low-level client:
+applications own reconnect, device approval and the interpretation of BLE data.
+Only one API client owns the BLE advertisement subscription in ESPHome2026.8.2;
+do not subscribe to a proxy currently used by Home Assistant without coordinating
+the handover.

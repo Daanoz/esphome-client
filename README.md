@@ -60,6 +60,37 @@ Currently supported (the newest version is the default):
 
 Follow [the guide](src/proto/README.md) in the proto dir to see how to add a new version.
 
+After automatic setup, `client.connection_info()` exposes the peer's advertised
+API version, software identification and node name. Manual setup
+(`without_connection_setup()`) leaves this metadata as `None` and does not
+consume a `HelloResponse`. A different API major is rejected; a different minor
+produces a warning and requires the application to select compatible operations.
+This does not guarantee compatibility with every future firmware release.
+
+The builder's `timeout()` covers the complete TCP, Noise, Hello and optional
+authentication setup with one deadline. It does not impose an idle read timeout.
+
+### Transport and wire errors
+
+Network writes use fallible encoding and return an error for oversized messages
+before changing the Noise nonce. The protobuf payload limits are 65,535 bytes for
+plaintext and 65,515 bytes for Noise (four bytes of internal header plus a
+16-byte authentication tag). Rejected oversized messages leave the session usable.
+Cloned write streams serialize encoding and complete writes. A write error or
+cancellation after encoding starts terminates the whole session; reconnect before
+using it again. Closing or dropping the client also invalidates its write clones.
+
+`EspHomeMessage::decode_wire()` distinguishes unknown message IDs, invalid lengths
+and malformed known messages through `MessageDecodeError`. An unknown ID does not
+consume the next frame. Malformed known messages terminate the session.
+`encode_wire()` returns size errors rather than panicking. The legacy
+`From<EspHomeMessage> for Vec<u8>` remains infallible and can still panic for an
+oversized message; network methods do not use it. The existing `TryFrom<Vec<u8>>`
+continues to return `String` errors.
+
+Adding error variants affects downstream exhaustive matches on the public error
+enums. The broader setup timeout is also an observable behavior change.
+
 ## Future
 
 Some things to be added/improved in the future:
